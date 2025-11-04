@@ -13,7 +13,7 @@ METRIC_DISTRIBUTIONS = {
 }
 
 
-class Synthetic_AA_test:
+class Generic_Generator:
     def __init__(
         self,
         metric_distribution:str,
@@ -23,6 +23,8 @@ class Synthetic_AA_test:
         self.n_actions = n_actions,
         self.gauss_noise = gauss_noise
 
+
+class Synthetic_AA_test(Generic_Generator):
     def generate_raw_logs(
         self,
         metric_distribution,
@@ -61,16 +63,7 @@ class Synthetic_AA_test:
         return np.concat(total_logs, axis=0)
 
 
-class Synthetic_AB_test:
-    def __init__(
-        self,
-        metric_distribution:str,
-        n_actions:int,
-        gauss_noise:float = 0.1,
-    ) -> None:
-        self.n_actions = n_actions,
-        self.gauss_noise = gauss_noise
-
+class Synthetic_AB_test(Generic_Generator):
     def generate_raw_logs_absolute_effect(
         self,
         metric_distribution,
@@ -110,7 +103,7 @@ class Synthetic_AB_test:
         return np.concat(total_logs, axis=0)
 
 
-    def generate_raw_logs_uplift_effect(
+    def generate_raw_logs_percen_effect(
         self,
         metric_distribution,
         effect_size:float,
