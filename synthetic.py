@@ -196,3 +196,27 @@ class Synthetic_AB_test(Generic_Generator):
         except Exception as e:
             logging.error(f"Error generating data with outliers: {e}")
             raise
+
+
+class Multi_metric_generator(Generic_Generator):
+    pass
+
+
+class Synthetic_MAB_test(Generic_Generator):
+    pass
+
+
+
+class Synthetic_time_series(Generic_Generator):
+    pass
+
+
+
+class Synthetic_conversion_metrics(Generic_Generator):
+    pass
+
+
+class Synthetic_ratio_metrics(Generic_Generator):
+    pass
+
+
