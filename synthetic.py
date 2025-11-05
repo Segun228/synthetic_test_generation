@@ -5,62 +5,10 @@ import scipy.stats as stats
 import logging
 from typing import Literal, Optional, Union, Callable
 import random
-
-METRIC_DISTRIBUTIONS = {
-    "normal": np.random.normal,
-    "uniform": np.random.uniform,
-    "exponential": np.random.exponential,
-    "binomial": np.random.binomial,
-    "poisson": np.random.poisson,
-}
-
-class Generic_Generator:
-    def __init__(
-        self,
-        n_actions: int,
-        gauss_noise: float = 0.1,
-    ) -> None:
-        self.n_actions = n_actions
-        self.gauss_noise = gauss_noise
-
-    def _validate_distribution(self, metric_distribution: str) -> Callable:
-        """Валидация распределения и получение сэмплера"""
-        if metric_distribution not in METRIC_DISTRIBUTIONS:
-            raise KeyError(f"Unsupported distribution: {metric_distribution}")
-        return METRIC_DISTRIBUTIONS[metric_distribution]
-
-    def _generate_user_data(
-            self, 
-            user_id: int, 
-            metric_sampler: Callable, 
-            effect_size: Optional[Union[int, float]] = None, 
-            effect_type: str = "absolute") -> np.ndarray:
-        """Генерация данных для одного пользователя"""
-        n_acts = np.random.poisson(lam=self.n_actions)
+from .generics import Generic_Generator
+import io
 
 
-        user_results = metric_sampler(size=n_acts).reshape(-1, 1)
-
-
-        if effect_size is not None:
-            if effect_type == "absolute":
-                user_results += effect_size
-            elif effect_type == "relative":
-                user_results *= (1 + effect_size)
-
-
-        noise_vector = np.random.uniform(
-            low=1 - self.gauss_noise,
-            high=1 + self.gauss_noise,
-            size=n_acts
-        ).reshape(-1, 1)
-        user_results *= noise_vector
-
-
-        user_id_vector = np.full((n_acts, 1), user_id)
-        user_data = np.concatenate((user_id_vector, user_results), axis=1)
-
-        return user_data
 
 class Synthetic_AA_test(Generic_Generator):
     def generate_raw_logs(
@@ -73,16 +21,66 @@ class Synthetic_AA_test(Generic_Generator):
         """Генерация данных для AA-теста (без эффекта)"""
         metric_sampler = self._validate_distribution(metric_distribution)
         total_logs = []
-
         for user_id in range(n_users):
             user_data = self._generate_user_data(user_id, metric_sampler)
             total_logs.append(user_data)
-
         result = np.vstack(total_logs)
-
         if return_as_frame:
             return pd.DataFrame(result, columns=["user_id", "metric"])
         return result
+
+    def generate_test_control_groups(
+        self,
+        test_size,
+        control_size,
+        metric_distribution
+    ):
+        try:
+            test_group = self.generate_raw_logs(
+                metric_distribution=metric_distribution,
+                n_users=test_size,
+                return_as_frame=True
+            )
+            control_group = self.generate_raw_logs(
+                metric_distribution=metric_distribution,
+                n_users=control_size,
+                return_as_frame=True
+            )
+            self.test_group = test_group
+            self.control_group = control_group
+            return test_group, control_group
+        except Exception as e:
+            logging.error(e)
+            raise
+
+    def visualize_groups(self) -> io.BytesIO | None:
+        try:
+            plt.figure(figsize=(16, 10))
+            if self.test_group is None or self.control_group is None: 
+                logging.info("Nothing to visualize")
+                return
+            if isinstance(self.test_group, pd.DataFrame) and isinstance(self.control_group, pd.DataFrame):
+                plt.hist(self.test_group.loc["metric"], bins="auto", alpha=0.6, label='Test group', color='blue', edgecolor='black')
+                plt.hist(self.control_group.loc["metric"], bins="auto", alpha=0.6, label='Control group', color='red', edgecolor='black')
+            else:
+                plt.hist(self.test_group, bins="auto", alpha=0.6, label='Test group', color='blue', edgecolor='black')
+                plt.hist(self.control_group, bins="auto", alpha=0.6, label='Control group', color='red', edgecolor='black')
+            plt.xlabel('Значения')
+            plt.ylabel('Частота')
+            plt.title('Сравнение распределений: Тест vs Контроль')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            buffer = io.BytesIO()
+            plt.savefig(buffer, dpi=300, bbox_inches='tight')
+            logging.info("График построен")
+            plt.show()
+            plt.close()
+            return buffer
+        except Exception as e:
+            logging.error(e)
+            raise
+
+
 
 class Synthetic_AB_test(Generic_Generator):
     def generate_raw_logs_absolute_effect(
@@ -102,9 +100,7 @@ class Synthetic_AB_test(Generic_Generator):
                 user_id, metric_sampler, effect_size, "absolute"
             )
             total_logs.append(user_data)
-
         result = np.vstack(total_logs)
-
         if return_as_frame:
             df = pd.DataFrame(result, columns=["user_id", "metric"])
             return df.sample(frac=1).reset_index(drop=True)
@@ -121,15 +117,12 @@ class Synthetic_AB_test(Generic_Generator):
         """Генерация данных с относительным эффектом"""
         metric_sampler = self._validate_distribution(metric_distribution)
         total_logs = []
-
         for user_id in range(n_users):
             user_data = self._generate_user_data(
                 user_id, metric_sampler, effect_size, "relative"
             )
             total_logs.append(user_data)
-
         result = np.vstack(total_logs)
-
         if return_as_frame:
             df = pd.DataFrame(result, columns=["user_id", "metric"])
             return df.sample(frac=1).reset_index(drop=True)
@@ -162,8 +155,6 @@ class Synthetic_AB_test(Generic_Generator):
             Q1 = metric_series.quantile(0.25)
             Q3 = metric_series.quantile(0.75)
             IQR = Q3 - Q1
-
-
             if outlier_type == "negative":
                 outlier_multipliers = np.random.uniform(-1.7, -1.5, n_outliers)
             elif outlier_type == "positive":
@@ -174,29 +165,141 @@ class Synthetic_AB_test(Generic_Generator):
                     np.random.uniform(-1.7, -1.5, n_outliers),
                     np.random.uniform(1.5, 1.7, n_outliers)
                 )
-
-
             outlier_values = IQR * outlier_multipliers
             max_user_id = clean_df["user_id"].max()
             outlier_user_ids = np.arange(max_user_id + 1, max_user_id + 1 + n_outliers)
-
-
             outliers_df = pd.DataFrame({
                 "user_id": outlier_user_ids,
                 "metric": outlier_values
             })
-
             result_df = pd.concat([clean_df, outliers_df], ignore_index=True)
             result_df = result_df.sample(frac=1).reset_index(drop=True)
             
             if return_as_frame:
                 return result_df
             return result_df.values
-            
         except Exception as e:
             logging.error(f"Error generating data with outliers: {e}")
             raise
 
+    def generate_test_control_groups(
+        self,
+        test_size,
+        control_size,
+        metric_distribution,
+        effect_size,
+        effect_type:Literal["absolute", "percent"]
+    ):
+        try:
+            if effect_type == "absolute":
+                test_group = self.generate_raw_logs_absolute_effect(
+                    metric_distribution=metric_distribution,
+                    n_users=test_size,
+                    return_as_frame=True,
+                    effect_size=effect_size
+                )
+                control_group = self.generate_raw_logs_absolute_effect(
+                    metric_distribution=metric_distribution,
+                    n_users=control_size,
+                    return_as_frame=True,
+                    effect_size=effect_size
+                )
+            else:
+                test_group = self.generate_raw_logs_percent_effect(
+                    metric_distribution=metric_distribution,
+                    n_users=test_size,
+                    return_as_frame=True,
+                    effect_size=effect_size
+                )
+                control_group = self.generate_raw_logs_percent_effect(
+                    metric_distribution=metric_distribution,
+                    n_users=control_size,
+                    return_as_frame=True,
+                    effect_size=effect_size
+                )
+            self.test_group = test_group
+            self.control_group = control_group
+            return test_group, control_group
+        except Exception as e:
+            logging.error(e)
+            raise
+
+    def add_outliers(
+        self,
+        test_group: pd.DataFrame,
+        control_group: pd.DataFrame,
+        return_as_frame: bool = True,
+        n_outliers: int = 10,
+        outlier_type: Literal["positive", "negative", "both"] = "both"
+    ) -> Union[np.ndarray, pd.DataFrame]:
+        """Добавление выбросов в объединенные данные test и control групп"""
+        test_group["group"] = "test"
+        control_group["group"] = "control"
+        df_joint = pd.concat([test_group, control_group], axis=0)
+        try:
+            metric_series = df_joint["metric"]
+            Q1 = metric_series.quantile(0.25)
+            Q3 = metric_series.quantile(0.75)
+            IQR = Q3 - Q1
+            if outlier_type == "negative":
+                outlier_multipliers = np.random.uniform(-1.7, -1.5, n_outliers)
+            elif outlier_type == "positive":
+                outlier_multipliers = np.random.uniform(1.5, 1.7, n_outliers)
+            else:  # "both"
+                outlier_multipliers = np.where(
+                    np.random.random(n_outliers) < 0.5,
+                    np.random.uniform(-1.7, -1.5, n_outliers),
+                    np.random.uniform(1.5, 1.7, n_outliers)
+                )
+            outlier_values = Q3 + IQR * outlier_multipliers
+            max_user_id = df_joint["user_id"].max()
+            outlier_user_ids = np.arange(max_user_id + 1, max_user_id + 1 + n_outliers)
+            test_size = len(test_group)
+            control_size = len(control_group)
+            total_size = test_size + control_size
+            n_test_outliers = int(n_outliers * (test_size / total_size))
+            n_control_outliers = n_outliers - n_test_outliers
+            outliers_data = []
+            if n_test_outliers > 0:
+                test_outlier_ids = outlier_user_ids[:n_test_outliers]
+                test_outlier_values = outlier_values[:n_test_outliers]
+                outliers_data.extend([
+                    {"user_id": uid, "metric": val, "group": "test"} 
+                    for uid, val in zip(test_outlier_ids, test_outlier_values)
+                ])
+            if n_control_outliers > 0:
+                control_outlier_ids = outlier_user_ids[n_test_outliers:n_test_outliers + n_control_outliers]
+                control_outlier_values = outlier_values[n_test_outliers:n_test_outliers + n_control_outliers]
+                outliers_data.extend([
+                    {"user_id": uid, "metric": val, "group": "control"} 
+                    for uid, val in zip(control_outlier_ids, control_outlier_values)
+                ])
+            outliers_df = pd.DataFrame(outliers_data)
+            df_with_outliers = pd.concat([df_joint, outliers_df], ignore_index=True)
+            df_with_outliers = df_with_outliers.sample(frac=1).reset_index(drop=True)
+            if return_as_frame:
+                return df_with_outliers
+            return df_with_outliers.values
+        except Exception as e:
+            logging.error(f"Error adding outliers to joint data: {e}")
+            raise
+
+    def generate_test_control_groups_with_outliers(
+        self,
+        test_size,
+        control_size,
+        metric_distribution,
+        effect_size,
+        effect_type:Literal["absolute", "percent"],
+        return_as_frame: bool = True,
+        n_outliers: int = 10,
+        outlier_type: Literal["positive", "negative", "both"] = "both"
+    ):
+        try:
+            pass#TODO
+        except Exception as e:
+            logging.error(e)
+            raise
 
 class Multi_metric_generator(Generic_Generator):
     pass
@@ -205,10 +308,6 @@ class Multi_metric_generator(Generic_Generator):
 class Synthetic_MAB_test(Generic_Generator):
     pass
 
-
-
-class Synthetic_time_series(Generic_Generator):
-    pass
 
 
 
