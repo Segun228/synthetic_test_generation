@@ -158,28 +158,41 @@ class Generic_Time_Series(ABC):
         })
         return self.time_series
 
+
     def create_noise(
         self,
-        noise_level:float
-    ):
+        noise_level: float = 0.2,  
+        noise_type: Literal["uniform", "gaussian"] = "uniform"
+    ) -> pd.DataFrame:
         time_series = self.time_series
         if time_series is None or time_series.empty:
             raise ValueError("Error while creating noise, initial time series is empty")
-        std = time_series["metric"].std()
-        noise_vector = pd.Series(
-            [
-                np.random.uniform(
-                    low=-abs(noise_level),
-                    high=abs(noise_level),
-                    size=1
-                ) * std for _ in range(len(time_series))
-            ]
-        )
+        
+        multiplier = max(time_series["metric"].std(), time_series["metric"].mean(), 100)
+        n_points = len(time_series)
+        
+        if noise_type == "uniform":
+            noise_vector = np.random.uniform(
+                low=-noise_level * multiplier,
+                high=noise_level * multiplier,
+                size=n_points
+            )
+        elif noise_type == "gaussian":
+            noise_vector = np.random.normal(
+                loc=0,
+                scale=noise_level * multiplier,
+                size=n_points
+            )
+        else:
+            raise ValueError("noise_type must be 'uniform' or 'gaussian'")
+        time_series = time_series.copy()
         time_series["metric"] += noise_vector
         self.time_series = time_series
         return time_series
 
-    def create_trend(self):
+    def create_trend(
+        self
+    ):
         raise NotImplementedError()
 
     def create_season(self):
