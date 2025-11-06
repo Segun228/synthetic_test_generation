@@ -117,16 +117,67 @@ class Generic_Time_Series(ABC):
         self.t_end:datetime.datetime = t_end
         self.n_events:int = n_events
         self.initial_value = initial_value
+        self.time_series = self.generate_initial_row()
 
+    def visualize(
+        self,
+        metric_name = "Метрика",
+        figsize: tuple = (16, 10),
+        dpi: int = 300,
+        show_plot: bool = True
+    )->io.BytesIO|None:
+        try:
+            time_series = self.time_series
+            if time_series is None or time_series.empty:
+                raise ValueError("The series is empty, could not generate a proper row")
+            plt.figure(figsize=figsize)
+            plt.plot(time_series["time"], time_series["metric"], linewidth=1)
+            plt.xlabel('Период')
+            plt.ylabel(metric_name)
+            plt.title('Базовое представление временного ряда')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            buffer = io.BytesIO()
+            plt.savefig(buffer, dpi=dpi, bbox_inches='tight')
+            logging.info("График построен")
+            if show_plot:
+                plt.show()
+                plt.close()
+            return buffer
+        except Exception as e:
+            logging.error(e)
+            raise
 
     def generate_initial_row(self) -> pd.DataFrame:
         if not all([self.t_start, self.t_end, self.n_events]):
             raise ValueError("Missing vital data arguments")
         time_points = [self.t_start + i * (self.t_end - self.t_start) / self.n_events for i in range(self.n_events)]
-        return pd.DataFrame({
+        self.time_series = pd.DataFrame({
             "time": time_points,
             "metric": [self.initial_value] * self.n_events
         })
+        return self.time_series
+
+    def create_noise(
+        self,
+        noise_level:float
+    ):
+        time_series = self.time_series
+        if time_series is None or time_series.empty:
+            raise ValueError("Error while creating noise, initial time series is empty")
+        std = time_series["metric"].std()
+        noise_vector = pd.Series(
+            [
+                np.random.uniform(
+                    low=-abs(noise_level),
+                    high=abs(noise_level),
+                    size=1
+                ) * std for _ in range(len(time_series))
+            ]
+        )
+        time_series["metric"] += noise_vector
+        self.time_series = time_series
+        return time_series
 
     def create_trend(self):
         raise NotImplementedError()
@@ -135,9 +186,6 @@ class Generic_Time_Series(ABC):
         raise NotImplementedError()
 
     def create_cycle(self):
-        raise NotImplementedError()
-
-    def create_noise(self):
         raise NotImplementedError()
 
     def create_outlier(self):
