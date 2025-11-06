@@ -8,6 +8,8 @@ import random
 from abc import ABC, abstractmethod
 from typing import Tuple
 import io
+import datetime
+
 
 METRIC_DISTRIBUTIONS = {
     "normal": np.random.normal,
@@ -26,8 +28,8 @@ class Generic_Generator(ABC):
     ) -> None:
         self.n_actions = n_actions
         self.gauss_noise = gauss_noise
-        self.test_group = None
-        self.control_group = None
+        self.test_group:pd.DataFrame|None = None
+        self.control_group:pd.DataFrame|None = None
 
     def _validate_distribution(self, metric_distribution: str) -> Callable:
         """Валидация распределения и получение сэмплера"""
@@ -70,18 +72,21 @@ class Generic_Generator(ABC):
     )->Tuple[pd.DataFrame, pd.DataFrame]:
         pass
 
-    def visualize_groups(self) -> io.BytesIO | None:
+    def visualize_groups(
+        self,
+        buckets = 30
+    ) -> io.BytesIO | None:
         try:
             plt.figure(figsize=(16, 10))
             if self.test_group is None or self.control_group is None: 
                 logging.info("Nothing to visualize")
                 return
             if isinstance(self.test_group, pd.DataFrame) and isinstance(self.control_group, pd.DataFrame):
-                plt.hist(self.test_group.loc["metric"], bins="auto", alpha=0.6, label='Test group', color='blue', edgecolor='black')
-                plt.hist(self.control_group.loc["metric"], bins="auto", alpha=0.6, label='Control group', color='red', edgecolor='black')
+                plt.hist(self.test_group["metric"], bins=30, alpha=0.5, label='Test group', color='blue', edgecolor='black')
+                plt.hist(self.control_group["metric"], bins=30, alpha=0.5, label='Control group', color='red', edgecolor='black')
             else:
-                plt.hist(self.test_group, bins="auto", alpha=0.6, label='Test group', color='blue', edgecolor='black')
-                plt.hist(self.control_group, bins="auto", alpha=0.6, label='Control group', color='red', edgecolor='black')
+                plt.hist(self.test_group, bins=buckets, alpha=0.5, label='Test group', color='blue', edgecolor='black')
+                plt.hist(self.control_group, bins=buckets, alpha=0.5, label='Control group', color='red', edgecolor='black')
             plt.xlabel('Значения')
             plt.ylabel('Частота')
             plt.title('Сравнение распределений: Тест vs Контроль')
@@ -103,8 +108,18 @@ class Generic_Generator(ABC):
 class Generic_Time_Series(ABC):
     def __init__(
         self,
-        t_start,
-        t_end,
-        n_
+        t_start:datetime.datetime,
+        t_end:datetime.datetime,
+        n_events:int
     ):
-        pass
+        self.t_start:datetime.datetime = t_start
+        self.t_end:datetime.datetime = t_end
+        self.n_events:int = n_events
+
+    @abstractmethod
+    def generate_initial_row(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def create_trend(self):
+        raise NotImplementedError()

@@ -5,7 +5,7 @@ import scipy.stats as stats
 import logging
 from typing import Literal, Optional, Union, Callable
 import random
-from .generics import Generic_Generator
+from generics import Generic_Generator
 import io
 
 
@@ -29,11 +29,12 @@ class Synthetic_AA_test(Generic_Generator):
             return pd.DataFrame(result, columns=["user_id", "metric"])
         return result
 
+
     def generate_test_control_groups(
         self,
         test_size,
         control_size,
-        metric_distribution
+        metric_distribution:Literal["poisson", "binomial", "exponential", "uniform", "normal"]
     ):
         try:
             test_group = self.generate_raw_logs(
@@ -46,36 +47,9 @@ class Synthetic_AA_test(Generic_Generator):
                 n_users=control_size,
                 return_as_frame=True
             )
-            self.test_group = test_group
-            self.control_group = control_group
+            self.test_group = (test_group if isinstance(test_group, pd.DataFrame) else pd.DataFrame(test_group, columns=(["metric"])))
+            self.control_group = (control_group if isinstance(control_group, pd.DataFrame) else pd.DataFrame(control_group, columns=(["metric"])))
             return test_group, control_group
-        except Exception as e:
-            logging.error(e)
-            raise
-
-    def visualize_groups(self) -> io.BytesIO | None:
-        try:
-            plt.figure(figsize=(16, 10))
-            if self.test_group is None or self.control_group is None: 
-                logging.info("Nothing to visualize")
-                return
-            if isinstance(self.test_group, pd.DataFrame) and isinstance(self.control_group, pd.DataFrame):
-                plt.hist(self.test_group.loc["metric"], bins="auto", alpha=0.6, label='Test group', color='blue', edgecolor='black')
-                plt.hist(self.control_group.loc["metric"], bins="auto", alpha=0.6, label='Control group', color='red', edgecolor='black')
-            else:
-                plt.hist(self.test_group, bins="auto", alpha=0.6, label='Test group', color='blue', edgecolor='black')
-                plt.hist(self.control_group, bins="auto", alpha=0.6, label='Control group', color='red', edgecolor='black')
-            plt.xlabel('Значения')
-            plt.ylabel('Частота')
-            plt.title('Сравнение распределений: Тест vs Контроль')
-            plt.legend()
-            plt.grid(True, alpha=0.3)
-            buffer = io.BytesIO()
-            plt.savefig(buffer, dpi=300, bbox_inches='tight')
-            logging.info("График построен")
-            plt.show()
-            plt.close()
-            return buffer
         except Exception as e:
             logging.error(e)
             raise
@@ -217,8 +191,8 @@ class Synthetic_AB_test(Generic_Generator):
                     return_as_frame=True,
                     effect_size=effect_size
                 )
-            self.test_group = test_group
-            self.control_group = control_group
+            self.test_group = (test_group if isinstance(test_group, pd.DataFrame) else pd.DataFrame(test_group, columns=(["metric"])))
+            self.control_group = (control_group if isinstance(control_group, pd.DataFrame) else pd.DataFrame(control_group, columns=(["metric"])))
             return test_group, control_group
         except Exception as e:
             logging.error(e)
@@ -245,7 +219,7 @@ class Synthetic_AB_test(Generic_Generator):
                 outlier_multipliers = np.random.uniform(-1.7, -1.5, n_outliers)
             elif outlier_type == "positive":
                 outlier_multipliers = np.random.uniform(1.5, 1.7, n_outliers)
-            else:  # "both"
+            else:
                 outlier_multipliers = np.where(
                     np.random.random(n_outliers) < 0.5,
                     np.random.uniform(-1.7, -1.5, n_outliers),
@@ -275,6 +249,7 @@ class Synthetic_AB_test(Generic_Generator):
                     for uid, val in zip(control_outlier_ids, control_outlier_values)
                 ])
             outliers_df = pd.DataFrame(outliers_data)
+            outliers_df["group"] = pd.Series([random.choice(("test", "control")) for _ in range(len(outliers_df))])
             df_with_outliers = pd.concat([df_joint, outliers_df], ignore_index=True)
             df_with_outliers = df_with_outliers.sample(frac=1).reset_index(drop=True)
             if return_as_frame:
@@ -296,10 +271,27 @@ class Synthetic_AB_test(Generic_Generator):
         outlier_type: Literal["positive", "negative", "both"] = "both"
     ):
         try:
-            pass#TODO
+            test_group, control_group = self.generate_test_control_groups(
+                test_size=test_size,
+                control_size=control_size,
+                metric_distribution=metric_distribution,
+                effect_size=effect_size,
+                effect_type=effect_type,
+            )
+            combined = self.add_outliers(
+                test_group=pd.DataFrame(test_group),
+                control_group=pd.DataFrame(control_group),
+                return_as_frame=True,
+                n_outliers=n_outliers,
+            )
+            if isinstance(combined, np.ndarray):
+                combined = pd.DataFrame(combined)
+            return combined[combined.loc["group"] == "test"], combined[combined.loc["group"] == "test"]
         except Exception as e:
             logging.error(e)
             raise
+
+
 
 class Multi_metric_generator(Generic_Generator):
     pass
