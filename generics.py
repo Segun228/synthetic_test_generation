@@ -110,16 +110,35 @@ class Generic_Time_Series(ABC):
         self,
         t_start:datetime.datetime,
         t_end:datetime.datetime,
-        n_events:int
+        n_events:int,
+        initial_value:float,
     ):
         self.t_start:datetime.datetime = t_start
         self.t_end:datetime.datetime = t_end
         self.n_events:int = n_events
+        self.initial_value = initial_value
 
-    @abstractmethod
-    def generate_initial_row(self):
+
+    def generate_initial_row(self) -> pd.DataFrame:
+        if not all([self.t_start, self.t_end, self.n_events]):
+            raise ValueError("Missing vital data arguments")
+        time_points = [self.t_start + i * (self.t_end - self.t_start) / self.n_events for i in range(self.n_events)]
+        return pd.DataFrame({
+            "time": time_points,
+            "metric": [self.initial_value] * self.n_events
+        })
+
+    def create_trend(self):
         raise NotImplementedError()
 
-    @abstractmethod
-    def create_trend(self):
+    def create_season(self):
+        raise NotImplementedError()
+
+    def create_cycle(self):
+        raise NotImplementedError()
+
+    def create_noise(self):
+        raise NotImplementedError()
+
+    def create_outlier(self):
         raise NotImplementedError()
