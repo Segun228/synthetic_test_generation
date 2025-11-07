@@ -1,0 +1,14 @@
+from .generics import Generic_Function
+from .function_types import FUNCTION_TYPES
+
+def function_factory(function_type: str, **coefficients) -> Generic_Function|None:
+    if function_type not in FUNCTION_TYPES:
+        raise NotImplementedError("Currently we do not support this type of functions")
+    
+    expected_args = FUNCTION_TYPES[function_type]
+    
+
+    for arg_name in expected_args:
+        if arg_name not in coefficients:
+            raise ValueError(f"Missing required coefficient '{arg_name}' for {func_type} function")
+
