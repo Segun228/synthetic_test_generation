@@ -5,7 +5,7 @@ import scipy.stats as stats
 import logging
 from typing import Literal, Optional, Union, Callable
 import random
-from generics import Generic_Generator
+from synthetic_AB_tests.generics import Generic_Generator
 import io
 
 

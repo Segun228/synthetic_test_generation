@@ -63,6 +63,10 @@ class Generic_Function(ABC):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._coefficients})"
 
+    @abstractmethod
+    def inverse_function(self, argument) -> Any:
+        raise NotImplementedError()
+
     @property
     def coefficients(self) -> dict:
         """Возвращает копию коэффициентов"""

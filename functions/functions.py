@@ -5,7 +5,7 @@ from functions.function_types import FUNCTION_TYPES
 
 
 class LinearFunction(Generic_Function):
-    def __init__(self, k: float, b: float, **kwargs):
+    def __init__(self, k: float = 0.5, b: float = 0, **kwargs):
         super().__init__('linear', k=k, b=b, **kwargs)
 
     def _validate_coefficients(self, coefficients: dict) -> None:
@@ -19,14 +19,17 @@ class LinearFunction(Generic_Function):
     def _evaluate(self, x: Any) -> Any:
         return self.k * x + self.b
 
+    def inverse_function(self, argument: Any) -> Any:
+        return (argument - self.b) / self.k
+
 
 
 class QuadraticFunction(Generic_Function):
     def __init__(
             self, 
-            a: float, 
-            b: float, 
-            c: float,
+            a: float = 2, 
+            b: float = -3, 
+            c: float = 2,
             **kwargs
         ):
         super().__init__(
@@ -49,11 +52,17 @@ class QuadraticFunction(Generic_Function):
     def _evaluate(self, x: Any) -> Any:
         return self.a * x**2 + self.b * x + self.c
 
+def inverse_function(self, y: Any) -> Any:
+    discriminant = self.b**2 - 4*self.a*(self.c - y)
+    if discriminant < 0:
+        raise ValueError("No real solution")
+    return (-self.b + math.sqrt(discriminant)) / (2 * self.a)
+
 
 
 
 class CubicFunction(Generic_Function):
-    def __init__(self, a: float, b: float, c: float, d: float, **kwargs):
+    def __init__(self, a: float = 2, b: float = -4, c: float = 6, d: float = 12, **kwargs):
         super().__init__('cubic', a=a, b=b, c=c, d=d, **kwargs)
 
     def _validate_coefficients(self, coefficients: dict) -> None:
@@ -68,9 +77,15 @@ class CubicFunction(Generic_Function):
     def _evaluate(self, x: Any) -> Any:
         return self.a * x**3 + self.b * x**2 + self.c * x + self.d
 
+    def inverse_function(self, y: Any) -> Any:
+        from scipy.optimize import fsolve
+        def equation(x):
+            return self.a*x**3 + self.b*x**2 + self.c*x + self.d - y
+        return fsolve(equation, 0)[0]
+
 
 class ExponentialFunction(Generic_Function):
-    def __init__(self, a: float, lambda_: float, **kwargs):
+    def __init__(self, a: float = 1, lambda_: float = 1, **kwargs):
         super().__init__('exponential', a=a, lambda_=lambda_, **kwargs)
 
     def _validate_coefficients(self, coefficients: dict) -> None:
@@ -87,7 +102,7 @@ class ExponentialFunction(Generic_Function):
 
 
 class LogarithmFunction(Generic_Function):
-    def __init__(self, k: float, a: int, b: int, **kwargs):
+    def __init__(self, k: float = 1, a: int = 2, b: int = 1, **kwargs):
         super().__init__('logarithm', k=k, a=a, b=b, **kwargs)
 
     def _validate_coefficients(self, coefficients: dict) -> None:
@@ -111,9 +126,14 @@ class LogarithmFunction(Generic_Function):
             raise ValueError("Logarithm is defined only for positive numbers")
         return self.k * math.log(x + self.b, self.a)
 
+    def inverse_function(self, y: Any) -> Any:
+        if y <= 0:
+            raise ValueError("Exponential output must be positive")
+        return math.log(y / self.a) / self.lambda_
+
 
 class SinusFunction(Generic_Function):
-    def __init__(self, a: float, omega: float, **kwargs):
+    def __init__(self, a: float = 1, omega: float = 1, **kwargs):
         super().__init__('sinus', a=a, omega=omega, **kwargs)
 
     def _validate_coefficients(self, coefficients: dict) -> None:
@@ -128,9 +148,14 @@ class SinusFunction(Generic_Function):
     def _evaluate(self, x: Any) -> Any:
         return self.a * math.sin(self.omega * x)
 
+    def inverse_function(self, y: Any) -> Any:
+        if abs(y) > abs(self.a):
+            raise ValueError("Value outside function range")
+        return math.asin(y / self.a) / self.omega
+
 
 class CosineFunction(Generic_Function):
-    def __init__(self, a: float, omega: float, **kwargs):
+    def __init__(self, a: float = 1, omega: float = 1, **kwargs):
         super().__init__('cosine', a=a, omega=omega, **kwargs)
 
     def _validate_coefficients(self, coefficients: dict) -> None:
@@ -145,9 +170,13 @@ class CosineFunction(Generic_Function):
     def _evaluate(self, x: Any) -> Any:
         return self.a * math.cos(self.omega * x)
 
+    def inverse_function(self, y: Any) -> Any:
+        if abs(y) > abs(self.a):
+            raise ValueError("Value outside function range")
+        return math.acos(y / self.a) / self.omega
 
 class TangentFunction(Generic_Function):
-    def __init__(self, a: float, omega: float, **kwargs):
+    def __init__(self, a: float = 1, omega: float = 1, **kwargs):
         super().__init__('tangent', a=a, omega=omega, **kwargs)
 
     def _validate_coefficients(self, coefficients: dict) -> None:
@@ -165,9 +194,12 @@ class TangentFunction(Generic_Function):
             raise ValueError(f"Tangent is undefined for x = {x}")
         return result
 
+    def inverse_function(self, y: Any) -> Any:
+        return math.atan(y / self.a) / self.omega
+
 
 class CotangentFunction(Generic_Function):
-    def __init__(self, a: float, omega: float, **kwargs):
+    def __init__(self, a: float = 1, omega: float = 1, **kwargs):
         super().__init__('cotangent', a=a, omega=omega, **kwargs)
 
     def _validate_coefficients(self, coefficients: dict) -> None:
@@ -184,3 +216,8 @@ class CotangentFunction(Generic_Function):
         if abs(tan_value) < 1e-10: 
             raise ValueError(f"Cotangent is undefined for x = {x}")
         return self.a / tan_value
+
+    def inverse_function(self, y: Any) -> Any:
+        if y == 0:
+            raise ValueError("Cotangent inverse undefined for 0")
+        return math.atan(self.a / y) / self.omega
