@@ -1,3 +1,16 @@
+from .functions import (
+    LinearFunction, 
+    QuadraticFunction, 
+    CubicFunction, 
+    ExponentialFunction, 
+    LogarithmFunction, 
+    SinusFunction, 
+    CosineFunction, 
+    TangentFunction, 
+    CotangentFunction
+)
+
+
 FUNCTION_TYPES = {
     "linear":{
         "k":float,
@@ -16,7 +29,7 @@ FUNCTION_TYPES = {
     },
     "exponential":{
         "a":float,
-        "lambda":float
+        "_lambda":float
     },
     "logarithm":{
         "k":float,
@@ -39,4 +52,17 @@ FUNCTION_TYPES = {
         "a":float,
         "omega":float
     }
+}
+
+
+FUNCTION_CLASSES = {
+    "linear":LinearFunction,
+    "quadratic":QuadraticFunction,
+    "cubic":CubicFunction,
+    "exponential":ExponentialFunction,
+    "logarithm":LogarithmFunction,
+    "sinus":SinusFunction,
+    "cosine":CosineFunction,
+    "tangent":TangentFunction,
+    "cotangent":CotangentFunction
 }
