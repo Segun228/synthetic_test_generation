@@ -1,7 +1,7 @@
 from .generics import Generic_Function
 from typing import Any
 import math
-from .function_types import FUNCTION_TYPES
+from functions.function_types import FUNCTION_TYPES
 
 
 class LinearFunction(Generic_Function):
@@ -10,12 +10,11 @@ class LinearFunction(Generic_Function):
 
     def _validate_coefficients(self, coefficients: dict) -> None:
         required = {'k', 'b'}
-        if not required.issubset(coefficients.keys()):
-            missing = required - set(coefficients.keys())
-            raise ValueError(f"Missing required coefficients: {missing}")
-        for coef in ['k', 'b']:
-            if coef in coefficients and not isinstance(coefficients[coef], (int, float)):
-                raise TypeError(f"Coefficient '{coef}' must be numeric")
+        for coef_name in coefficients.keys():
+            if coef_name not in required:
+                raise ValueError(f"Unknown coefficient: {coef_name}")
+            if not isinstance(coefficients[coef_name], (int, float)):
+                raise TypeError(f"Coefficient '{coef_name}' must be numeric")
 
     def _evaluate(self, x: Any) -> Any:
         return self.k * x + self.b
@@ -98,9 +97,9 @@ class LogarithmFunction(Generic_Function):
             raise ValueError(f"Missing required coefficients: {missing}")
         if 'k' in coefficients and not isinstance(coefficients['k'], (int, float)):
             raise TypeError("Coefficient 'k' must be numeric")
-        if 'a' in coefficients and not (isinstance(coefficients['a'], (int, float)) and coefficients['a'] > 0 ):
+        if 'a' in coefficients and not (isinstance(coefficients['a'], (int, float))):
             raise TypeError("Coefficient 'a' must be integer")
-        if 'b' in coefficients and not isinstance(coefficients['b'], int):
+        if 'b' in coefficients and not isinstance(coefficients['b'], (int, float)):
             raise TypeError("Coefficient 'b' must be integer")
         if 'a' in coefficients and coefficients['a'] <= 0:
             raise ValueError("Base 'a' must be positive")
