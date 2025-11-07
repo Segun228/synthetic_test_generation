@@ -1,4 +1,4 @@
-from synthetic import Synthetic_AA_test
+from synthetic_AB_tests.synthetic import Synthetic_AA_test
 
 
 def main():

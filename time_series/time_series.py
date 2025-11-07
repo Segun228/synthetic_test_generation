@@ -5,7 +5,7 @@ import scipy.stats as stats
 import logging
 from typing import Literal, Optional, Union, Callable
 import random
-from generics import Generic_Time_Series
+from time_series.generics import Generic_Time_Series
 
 class Synthetic_time_series(Generic_Time_Series):
     pass
